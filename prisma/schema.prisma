@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String    @default("editor")
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model TourSettings {
+  id              String   @id @default(cuid())
+  companyName     String   @default("TourCraft")
+  companyAddress  String?
+  companyPhone    String?
+  companyWebsite  String?
+  companyEmail    String?
+  logoUrl         String?
+  primaryColor    String   @default("#1B2A4A")
+  defaultCurrency String   @default("EUR")
+  defaultLanguage String   @default("en")
+  timezone        String   @default("UTC")
+  emergencyPhone  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Language {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model VisitPoint {
+  id           String              @id @default(cuid())
+  names        Json
+  descriptions Json
+  photoUrl     String?
+  category     String?
+  tourDays     TourDayVisitPoint[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model Accommodation {
+  id        String    @id @default(cuid())
+  names     Json
+  address   String?
+  stars     Int       @default(0)
+  photoUrl  String?
+  tourDays  TourDay[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Airline {
+  id        String   @id @default(cuid())
+  names     Json
+  iataCode  String?
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InclusionItem {
+  id             String          @id @default(cuid())
+  labels         Json
+  icon           String?
+  defaultType    String          @default("included")
+  tourInclusions TourInclusion[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model CancellationPolicy {
+  id           String                   @id @default(cuid())
+  titles       Json
+  contents     Json
+  isDefault    Boolean                  @default(false)
+  tourPolicies TourCancellationPolicy[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+}
+
+model TourProgram {
+  id               String                   @id @default(cuid())
+  slug             String                   @unique
+  clientName       String
+  clientEmail      String?
+  clientPhone      String?
+  preparedBy       String?
+  preparedDate     DateTime?
+  paxCount         Int                      @default(1)
+  durationDays     Int                      @default(1)
+  destination      String?
+  startDate        DateTime?
+  endDate          DateTime?
+  tourLanguages    String                   @default("en") @db.Text
+  status           String                   @default("draft")
+  lastAutoSave     DateTime?
+  titles           Json
+  descriptionBlock Json
+  priceTable       Json
+  paymentOptions   Json
+  coverPhotoUrl    String?
+  logoOverride     String?
+  draftData        Json?
+  days             TourDay[]
+  inclusions       TourInclusion[]
+  policies         TourCancellationPolicy[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+}
+
+model TourDay {
+  id              String              @id @default(cuid())
+  tourProgramId   String
+  tourProgram     TourProgram         @relation(fields: [tourProgramId], references: [id], onDelete: Cascade)
+  dayNumber       Int
+  date            DateTime?
+  startTime       String?
+  endTime         String?
+  photoUrl        String?
+  accommodationId String?
+  accommodation   Accommodation?      @relation(fields: [accommodationId], references: [id])
+  flightInfo      Json?
+  notes           Json
+  mealBreakfast   Boolean             @default(false)
+  mealLunch       Boolean             @default(false)
+  mealDinner      Boolean             @default(false)
+  visitPoints     TourDayVisitPoint[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([tourProgramId, dayNumber])
+}
+
+model TourDayVisitPoint {
+  id           String     @id @default(cuid())
+  tourDayId    String
+  tourDay      TourDay    @relation(fields: [tourDayId], references: [id], onDelete: Cascade)
+  visitPointId String
+  visitPoint   VisitPoint @relation(fields: [visitPointId], references: [id])
+  order        Int        @default(0)
+}
+
+model TourInclusion {
+  id              String        @id @default(cuid())
+  tourProgramId   String
+  tourProgram     TourProgram   @relation(fields: [tourProgramId], references: [id], onDelete: Cascade)
+  inclusionItemId String
+  inclusionItem   InclusionItem @relation(fields: [inclusionItemId], references: [id])
+  type            String
+}
+
+model TourCancellationPolicy {
+  id                   String             @id @default(cuid())
+  tourProgramId        String
+  tourProgram          TourProgram        @relation(fields: [tourProgramId], references: [id], onDelete: Cascade)
+  cancellationPolicyId String
+  cancellationPolicy   CancellationPolicy @relation(fields: [cancellationPolicyId], references: [id])
+}
