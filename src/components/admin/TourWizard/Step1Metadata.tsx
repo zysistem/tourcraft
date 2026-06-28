@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTourWizardStore, generateDaysFromRange } from '@/store/tourWizardStore'
 import MultiLangInput from '../MultiLangInput'
-import { CheckCircle, Upload } from 'lucide-react'
+import { CheckCircle, Upload, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 const AVAILABLE_LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -16,6 +17,8 @@ const AVAILABLE_LANGUAGES = [
 
 export default function Step1Metadata() {
   const store = useTourWizardStore()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const set = (field: string, val: any) => store.setField(field, val)
 
@@ -26,12 +29,10 @@ export default function Step1Metadata() {
     set('languages', langs)
   }
 
-  // Auto-generate days when dates change
   useEffect(() => {
     if (store.startDate && store.endDate) {
       const existingCount = store.days.length
       const newDays = generateDaysFromRange(store.startDate, store.endDate)
-      // Only regenerate if count changes to avoid resetting content
       if (newDays.length !== existingCount) {
         store.setDays(newDays)
       }
@@ -41,6 +42,33 @@ export default function Step1Metadata() {
   const dayCount = store.startDate && store.endDate
     ? generateDaysFromRange(store.startDate, store.endDate).length
     : 0
+
+  const handleFileChange = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (!res.ok) throw new Error('Upload failed')
+      const { url } = await res.json()
+      set('coverPhotoUrl', url)
+      toast.success('Cover photo uploaded')
+    } catch {
+      toast.error('Upload failed — check Vercel Blob setup')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) handleFileChange(file)
+  }
 
   return (
     <div className="animate-tcfade">
@@ -76,7 +104,6 @@ export default function Step1Metadata() {
         </label>
       </div>
 
-      {/* Tour title multilingual */}
       <div className="mt-[22px] pt-[20px] border-t border-line">
         <MultiLangInput
           label="Tour title — per language"
@@ -151,11 +178,36 @@ export default function Step1Metadata() {
       {/* Cover photo */}
       <div className="mt-5">
         <span className="text-[12.5px] font-semibold">Cover photo</span>
-        <div className="mt-2 h-[140px] border-[1.5px] border-dashed border-[#c7cdd6] rounded-[11px] bg-[repeating-linear-gradient(135deg,#eef0f3,#eef0f3_10px,#f5f6f8_10px,#f5f6f8_20px)] flex flex-col items-center justify-center gap-[6px] text-faint cursor-pointer hover:border-navy transition-colors">
-          <Upload size={22} />
-          <span className="text-[12px] font-mono tracking-wider">DROP COVER PHOTO · 1600×900</span>
-          {store.coverPhotoUrl && <span className="text-[11px] text-green">{store.coverPhotoUrl}</span>}
-        </div>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChange(f) }} />
+        {store.coverPhotoUrl ? (
+          <div className="mt-2 relative rounded-[11px] overflow-hidden h-[140px]">
+            <img src={store.coverPhotoUrl} alt="Cover" className="w-full h-full object-cover" />
+            <button onClick={() => set('coverPhotoUrl', '')}
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80 transition">
+              <X size={14} />
+            </button>
+            <button onClick={() => fileRef.current?.click()}
+              className="absolute bottom-2 right-2 bg-black/60 text-white rounded-[7px] px-3 py-1 text-[11px] font-semibold hover:bg-black/80 transition">
+              Change
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="mt-2 h-[140px] border-[1.5px] border-dashed border-[#c7cdd6] rounded-[11px] bg-[repeating-linear-gradient(135deg,#eef0f3,#eef0f3_10px,#f5f6f8_10px,#f5f6f8_20px)] flex flex-col items-center justify-center gap-[6px] text-faint cursor-pointer hover:border-navy transition-colors">
+            {uploading ? (
+              <span className="text-[12px] text-navy font-semibold animate-pulse">Uploading…</span>
+            ) : (
+              <>
+                <Upload size={22} />
+                <span className="text-[12px] font-mono tracking-wider">CLICK OR DROP COVER PHOTO · 1600×900</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

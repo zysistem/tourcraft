@@ -60,7 +60,8 @@ export default function PublicTourPage({ tour, settings }: { tour: any; settings
             ))}
           </div>
         )}
-        <button className="h-[38px] rounded-[9px] px-[15px] text-[13px] font-semibold text-white flex items-center gap-2 no-print"
+        <button onClick={() => window.print()}
+          className="h-[38px] rounded-[9px] px-[15px] text-[13px] font-semibold text-white flex items-center gap-2 no-print"
           style={{ background: primaryColor }}>
           <Download size={15} />Download PDF
         </button>
